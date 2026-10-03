@@ -112,14 +112,20 @@ function transformBackendProduct(data: any): Product {
 
 export const api = {
   listProducts: async (): Promise<Product[]> => {
-    // 1. Try querying backend sitemap or index
     try {
-      const res = await fetch(`${API_BASE}/api/v1/sitemap/product?size=50`);
+      const res = await fetch(`${API_BASE}/api/v1/products?limit=100`);
       if (res.ok) {
-        // Can enrich with mock or full catalog
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const live = data.map(transformBackendProduct);
+          // Combine live with any local mocks that aren't duplicated
+          const liveSlugs = new Set(live.map((p) => p.slug));
+          const remainingMocks = PRODUCTS.filter((p) => !liveSlugs.has(p.slug));
+          return [...live, ...remainingMocks];
+        }
       }
-    } catch {
-      // offline fallback
+    } catch (err) {
+      console.warn("[TBP Backend API] Falling back to local catalog:", err);
     }
     return delay(PRODUCTS);
   },

@@ -33,6 +33,47 @@ from app.schemas.public_api import (
 router = APIRouter(prefix="/api/v1/products", tags=["Public Products (ISR)"])
 
 
+@router.get("")
+async def list_products(
+    category_id: str | None = None,
+    brand_slug: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """List products with optional search and category filters."""
+    stmt = (
+        select(Product)
+        .options(selectinload(Product.brand))
+        .order_by(Product.name.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    if category_id:
+        stmt = stmt.where(Product.category_id == category_id)
+    if brand_slug:
+        stmt = stmt.join(Brand, Product.brand_id == Brand.id).where(Brand.slug == brand_slug)
+    if q:
+        stmt = stmt.where(Product.name.ilike(f"%{q}%"))
+
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "slug": p.slug,
+            "brand": {"name": p.brand.name if p.brand else "", "slug": p.brand.slug if p.brand else ""},
+            "category_id": p.category_id,
+            "format": p.format,
+            "claims": p.claims or [],
+            "dcs_score": p.dcs_score,
+            "index_tier": p.index_tier,
+        }
+        for p in rows
+    ]
+
+
 @router.get("/{slug}", response_model=ProductDetailResponse)
 async def get_product_by_slug(
     slug: str,
