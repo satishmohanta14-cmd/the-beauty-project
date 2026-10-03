@@ -4,11 +4,11 @@
 import { PRODUCTS, type Offer, type Product, type Ingredient, type Category, type SkinType, type Retailer } from "./catalog";
 
 export const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL && !import.meta.env.VITE_API_BASE_URL.includes("localhost")
-    ? import.meta.env.VITE_API_BASE_URL
-    : (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
-        ? "https://tbp-backend-66be.onrender.com"
-        : (import.meta.env.VITE_API_BASE_URL || "https://tbp-backend-66be.onrender.com"))
+  typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000")
+    : (import.meta.env.VITE_API_BASE_URL && !import.meta.env.VITE_API_BASE_URL.includes("localhost")
+        ? import.meta.env.VITE_API_BASE_URL
+        : "https://tbp-backend-66be.onrender.com")
 );
 
 const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms));

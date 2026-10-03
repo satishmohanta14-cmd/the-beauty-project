@@ -1,5 +1,3 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".output/public",
-  "framework": "vite"
+  "buildCommand": "npm run build"
 }
