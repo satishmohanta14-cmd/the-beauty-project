@@ -38,9 +38,7 @@ def upgrade() -> None:
         "product",
         sa.Column(
             "formula_vector",
-            sa.Text().with_variant(
-                sa.text(f"vector({FORMULA_VECTOR_DIMS})"), "postgresql"
-            ),
+            sa.Text(),
             nullable=True,
             comment=(
                 f"{FORMULA_VECTOR_DIMS}-dim INCI composition vector. "
@@ -58,12 +56,8 @@ def upgrade() -> None:
         f"USING formula_vector::vector({FORMULA_VECTOR_DIMS})"
     )
 
-    # ── 2. HNSW cosine index ──────────────────────────────────────────────
-    op.execute(
-        "CREATE INDEX product_formula_vector_hnsw "
-        "ON product USING hnsw (formula_vector vector_cosine_ops) "
-        "WITH (m = 16, ef_construction = 64)"
-    )
+    # Note: pgvector caps HNSW indices at 2000 dimensions.
+    # For 3000-dim formula vectors, PostgreSQL uses exact scan with <=> operator.
 
 
 def downgrade() -> None:

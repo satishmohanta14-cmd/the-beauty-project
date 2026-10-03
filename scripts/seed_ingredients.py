@@ -384,7 +384,7 @@ async def main() -> None:
 
     await engine.dispose()
     total = len(SEED_INGREDIENTS)
-    print(f"✓ Seed complete — {count} new / {total - count} already existed ({total} total).")
+    print(f"Seed complete: {count} new / {total - count} already existed ({total} total).")
 
 
 if __name__ == "__main__":

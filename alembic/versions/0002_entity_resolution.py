@@ -37,10 +37,7 @@ def upgrade() -> None:
         "product",
         sa.Column(
             "name_vector",
-            # Raw DDL type for the migration — pgvector extension must be installed
-            sa.Text().with_variant(
-                sa.text(f"vector({EMBEDDING_DIMS})"), "postgresql"
-            ),
+            sa.Text(),
             nullable=True,
             comment=(
                 "384-dim sentence embedding (all-MiniLM-L6-v2). "

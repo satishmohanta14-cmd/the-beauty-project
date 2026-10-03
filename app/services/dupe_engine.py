@@ -356,12 +356,11 @@ class DupeEngineService:
             )
             return None
 
-        # Store as pgvector literal string — asyncpg will cast via ::vector
-        pg_literal = vec_to_pg_literal(vec)
+        # Store as list — pgvector SQLAlchemy Vector type expects list or ndarray
         await self._session.execute(
             update(Product)
             .where(Product.id == product_id)
-            .values(formula_vector=pg_literal)
+            .values(formula_vector=vec.tolist())
         )
         logger.debug("formula_vector stored for product %s (dims=%d)", product_id, self._dims)
         return vec
@@ -424,12 +423,12 @@ class DupeEngineService:
                         p.name            AS product_name,
                         p.format,
                         p.category_id,
-                        1 - (p.formula_vector <=> :qv ::vector) AS cosine_sim
+                        1 - (p.formula_vector <=> CAST(:qv AS vector)) AS cosine_sim
                     FROM product p
-                    WHERE p.id          != :pid
+                    WHERE p.id          != CAST(:pid AS uuid)
                       AND p.category_id  = :cat
                       AND p.formula_vector IS NOT NULL
-                    ORDER BY p.formula_vector <=> :qv ::vector
+                    ORDER BY p.formula_vector <=> CAST(:qv AS vector)
                     LIMIT :lim
                     """
                 ).bindparams(
