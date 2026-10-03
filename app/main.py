@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,5 +72,24 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/health", tags=["system"])
-async def health_check() -> dict[str, str]:
-    return {"status": "ok", "env": settings.app_env}
+async def health_check() -> dict[str, Any]:
+    db_status = "unknown"
+    db_error = None
+    try:
+        from sqlalchemy import text
+        from app.db.session import async_session
+        async with async_session() as session:
+            res = await session.execute(text("SELECT count(*) FROM brand;"))
+            brand_count = res.scalar()
+            db_status = f"connected ({brand_count} brands in database)"
+    except Exception as e:
+        db_status = "connection_failed"
+        db_error = str(e)
+
+    return {
+        "status": "ok",
+        "env": settings.app_env,
+        "database": db_status,
+        "database_error": db_error,
+        "database_url_provided": bool(settings.database_url),
+    }
