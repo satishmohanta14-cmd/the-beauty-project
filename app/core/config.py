@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     postgres_db: str = "tbp_db"
 
     # Optional explicit override — if set it wins over the assembled URL.
-    database_url: PostgresDsn | None = None
+    database_url: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
