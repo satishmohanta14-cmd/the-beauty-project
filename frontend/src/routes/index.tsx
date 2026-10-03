@@ -1,16 +1,20 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { BUDGETS, CATEGORIES, PRODUCTS, SKIN_TYPES } from "@/lib/catalog";
-import { inr, lowestOffer } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { BUDGETS, CATEGORIES, PRODUCTS, SKIN_TYPES, type Product } from "@/lib/catalog";
+import { api, inr, lowestOffer } from "@/lib/api";
 import { ProductCard } from "@/components/site";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  loader: async () => {
+    const products = await api.listProducts();
+    return { products };
+  },
   head: () => ({
     meta: [
       { title: "The Beauty Project — Skincare spec & price comparison" },
-      { name: "description", content: "Search serums, sunscreens and moisturizers. Compare actives, INCI lists and lowest prices across Nykaa, Amazon, Tira and Sephora." },
+      { name: "description", content: "Search serums, sunscreens, moisturizers and cleansers. Compare actives, INCI lists and lowest prices across Nykaa, Amazon, Tira and Sephora." },
       { property: "og:title", content: "The Beauty Project — Skincare spec & price comparison" },
       { property: "og:description", content: "Compare actives, ingredients and lowest prices across Indian retailers." },
       { property: "og:type", content: "website" },
@@ -36,34 +40,50 @@ function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNod
 
 function Explorer() {
   const navigate = useNavigate();
+  const loaderData = Route.useLoaderData();
+  const [products, setProducts] = useState<Product[]>(loaderData?.products || PRODUCTS);
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
   const [cat, setCat] = useState<string | null>(null);
   const [skin, setSkin] = useState<string | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    api.listProducts().then((data) => {
+      if (active && data && data.length > 0) {
+        setProducts(data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const suggestions = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return [];
-    return PRODUCTS.filter((p) =>
+    return products.filter((p) =>
       [p.brand, p.name, ...p.actives].join(" ").toLowerCase().includes(t),
-    ).slice(0, 6);
-  }, [q]);
+    ).slice(0, 8);
+  }, [q, products]);
 
-  const results = PRODUCTS.filter(
-    (p) =>
-      (!cat || p.category === cat) &&
-      (!skin || p.skinTypes.includes(skin as never)) &&
-      (!budget || lowestOffer(p).price < budget) &&
-      (!q || [p.brand, p.name, ...p.actives].join(" ").toLowerCase().includes(q.toLowerCase())),
-  );
+  const results = useMemo(() => {
+    return products.filter(
+      (p) =>
+        (!cat || p.category === cat) &&
+        (!skin || p.skinTypes.includes(skin as never)) &&
+        (!budget || lowestOffer(p).price < budget) &&
+        (!q || [p.brand, p.name, ...p.actives].join(" ").toLowerCase().includes(q.toLowerCase())),
+    );
+  }, [products, cat, skin, budget, q]);
 
   return (
     <>
       <section className="bg-hero text-primary-foreground">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/60">
-            {PRODUCTS.length} products · 4 retailers · live prices
+            {products.length} products · 4 retailers · live prices
           </p>
           <h1 className="mt-2 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-5xl">
             Know the formula. Pay the lowest price.

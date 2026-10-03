@@ -3,7 +3,13 @@
 //   GET /api/v1/ingredients/:slug · GET /go/:offerId
 import { PRODUCTS, type Offer, type Product, type Ingredient, type Category, type SkinType, type Retailer } from "./catalog";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+export const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL && !import.meta.env.VITE_API_BASE_URL.includes("localhost")
+    ? import.meta.env.VITE_API_BASE_URL
+    : (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+        ? "https://tbp-backend-66be.onrender.com"
+        : (import.meta.env.VITE_API_BASE_URL || "https://tbp-backend-66be.onrender.com"))
+);
 
 const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -58,9 +64,9 @@ function transformBackendProduct(data: any): Product {
   }));
 
   const offers: Offer[] = (data.price_comparison || []).map((o: any, idx: number) => ({
-    id: `off-${data.slug}-${idx}`,
+    id: o.affiliate_redirect_url ? o.affiliate_redirect_url.replace("/go/", "") : `off-${data.slug}-${idx}`,
     retailer: (o.retailer_name as Retailer) || "Nykaa",
-    ml: Number(o.variant_size_ml) || 30,
+    ml: Number(o.variant_size_ml) || Number(data.size_ml) || 30,
     price: Number(o.price),
     inStock: o.in_stock ?? true,
     url: o.affiliate_redirect_url ? `${API_BASE}${o.affiliate_redirect_url}` : "#",
@@ -70,9 +76,9 @@ function transformBackendProduct(data: any): Product {
   if (offers.length === 0) {
     offers.push({
       id: `off-${data.slug}-0`,
-      retailer: "Nykaa",
-      ml: 30,
-      price: 599,
+      retailer: (data.retailer_name as Retailer) || "Nykaa",
+      ml: Number(data.size_ml) || 30,
+      price: Number(data.min_price || 499),
       inStock: true,
       url: "#",
     });
@@ -85,12 +91,18 @@ function transformBackendProduct(data: any): Product {
     sunscreens: "Sunscreens",
     moisturizer: "Moisturizers",
     moisturizers: "Moisturizers",
+    cleanser: "Cleansers",
+    cleansers: "Cleansers",
+    facewash: "Cleansers",
+    "face-cleanser": "Cleansers",
   };
   const category: Category = categoryMap[data.category_id?.toLowerCase()] || "Serums";
 
-  const actives = (data.ingredients || [])
-    .filter((i: any) => i.is_active)
-    .map((i: any) => i.canonical_name || i.inci_name);
+  const actives = (data.actives && data.actives.length > 0)
+    ? data.actives
+    : (data.ingredients || [])
+        .filter((i: any) => i.is_active)
+        .map((i: any) => i.canonical_name || i.inci_name);
 
   const sizes = Array.from(new Set(offers.map((o) => o.ml)));
 
@@ -100,9 +112,9 @@ function transformBackendProduct(data: any): Product {
     name: data.name,
     category,
     skinTypes: ["Oily", "Dry", "Sensitive"] as SkinType[],
-    actives: actives.length > 0 ? actives : ["Niacinamide"],
-    sizes: sizes.length > 0 ? sizes : [30],
-    claims: data.claims || ["Fragrance-free", "Cruelty-free"],
+    actives: actives.length > 0 ? actives : ["Key Actives"],
+    sizes: sizes.length > 0 ? sizes : [Number(data.size_ml) || 30],
+    claims: (data.claims && data.claims.length > 0) ? data.claims : ["Fragrance-free", "Cruelty-free"],
     dcs: data.dcs_score || 70,
     hue: 200,
     ingredients,
@@ -113,7 +125,7 @@ function transformBackendProduct(data: any): Product {
 export const api = {
   listProducts: async (): Promise<Product[]> => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/products?limit=100`);
+      const res = await fetch(`${API_BASE}/api/v1/products?limit=500`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {

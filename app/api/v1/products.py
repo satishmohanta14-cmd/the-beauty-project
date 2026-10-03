@@ -38,14 +38,18 @@ async def list_products(
     category_id: str | None = None,
     brand_slug: str | None = None,
     q: str | None = None,
-    limit: int = 50,
+    limit: int = 300,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """List products with optional search and category filters."""
+    """List products with optional search, category filters, and live pricing."""
     stmt = (
         select(Product)
-        .options(selectinload(Product.brand))
+        .options(
+            selectinload(Product.brand),
+            selectinload(Product.variants).selectinload(Variant.offers).selectinload(Offer.retailer),
+            selectinload(Product.product_ingredients).selectinload(ProductIngredient.ingredient),
+        )
         .order_by(Product.name.asc())
         .limit(limit)
         .offset(offset)
@@ -58,8 +62,53 @@ async def list_products(
         stmt = stmt.where(Product.name.ilike(f"%{q}%"))
 
     rows = (await db.execute(stmt)).scalars().all()
-    return [
-        {
+    results = []
+    for p in rows:
+        offers_list = []
+        min_price = None
+        primary_size = 30.0
+        retailer_name = "Nykaa"
+
+        for v in p.variants:
+            if v.size_ml:
+                primary_size = float(v.size_ml)
+            if v.mrp and min_price is None:
+                min_price = float(v.mrp)
+            for off in v.offers:
+                if off.in_stock:
+                    p_price = float(off.price)
+                    if min_price is None or p_price < min_price:
+                        min_price = p_price
+                        if off.retailer:
+                            retailer_name = off.retailer.name
+                    offers_list.append({
+                        "retailer_name": off.retailer.name if off.retailer else "Retailer",
+                        "variant_size_ml": float(v.size_ml),
+                        "price": p_price,
+                        "currency": off.currency,
+                        "in_stock": off.in_stock,
+                        "affiliate_redirect_url": f"/go/{off.id}",
+                    })
+
+        actives = [
+            pi.ingredient.canonical_name or pi.ingredient.inci_name
+            for pi in p.product_ingredients
+            if pi.is_active and pi.ingredient
+        ]
+
+        ingredients_list = [
+            {
+                "canonical_name": pi.ingredient.canonical_name,
+                "inci_name": pi.ingredient.inci_name,
+                "function": pi.ingredient.function_ or [],
+                "comedogenic": pi.ingredient.comedogenic or 0,
+                "is_active": pi.is_active,
+            }
+            for pi in p.product_ingredients
+            if pi.ingredient
+        ]
+
+        results.append({
             "id": str(p.id),
             "name": p.name,
             "slug": p.slug,
@@ -69,9 +118,14 @@ async def list_products(
             "claims": p.claims or [],
             "dcs_score": p.dcs_score,
             "index_tier": p.index_tier,
-        }
-        for p in rows
-    ]
+            "min_price": min_price,
+            "size_ml": primary_size,
+            "retailer_name": retailer_name,
+            "actives": actives,
+            "price_comparison": offers_list,
+            "ingredients": ingredients_list,
+        })
+    return results
 
 
 @router.get("/{slug}", response_model=ProductDetailResponse)

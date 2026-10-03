@@ -1,4 +1,4 @@
-export type Category = "Serums" | "Sunscreens" | "Moisturizers";
+export type Category = "Serums" | "Sunscreens" | "Moisturizers" | "Cleansers";
 export type SkinType = "Oily" | "Dry" | "Sensitive";
 export type Retailer = "Nykaa" | "Amazon" | "Tira" | "Sephora";
 
@@ -221,7 +221,7 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-export const CATEGORIES: Category[] = ["Serums", "Sunscreens", "Moisturizers"];
+export const CATEGORIES: Category[] = ["Serums", "Sunscreens", "Moisturizers", "Cleansers"];
 export const SKIN_TYPES: SkinType[] = ["Oily", "Dry", "Sensitive"];
 export const BUDGETS = [
   { label: "Under ₹500", max: 500 },
