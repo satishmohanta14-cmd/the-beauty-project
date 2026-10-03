@@ -3,13 +3,23 @@
 //   GET /api/v1/ingredients/:slug · GET /go/:offerId
 import { PRODUCTS, type Offer, type Product, type Ingredient, type Category, type SkinType, type Retailer } from "./catalog";
 
-export const API_BASE = (
-  typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000")
-    : (import.meta.env.VITE_API_BASE_URL && !import.meta.env.VITE_API_BASE_URL.includes("localhost")
-        ? import.meta.env.VITE_API_BASE_URL
-        : "https://tbp-backend-66be.onrender.com")
-);
+const sanitizeUrl = (raw: string | undefined): string =>
+  (raw || "").trim().replace(/[\r\n\s]+/g, "").replace(/\/+$/, "");
+
+const getApiBase = (): string => {
+  const envUrl = sanitizeUrl(import.meta.env.VITE_API_BASE_URL);
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return envUrl || "http://localhost:8000";
+    }
+  }
+  if (envUrl && !envUrl.includes("localhost")) {
+    return envUrl;
+  }
+  return "https://tbp-backend-66be.onrender.com";
+};
+
+export const API_BASE = getApiBase();
 
 const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -125,16 +135,20 @@ function transformBackendProduct(data: any): Product {
 export const api = {
   listProducts: async (): Promise<Product[]> => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/products?limit=500`);
+      const url = `${API_BASE}/api/v1/products?limit=500`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           const live = data.map(transformBackendProduct);
-          // Combine live with any local mocks that aren't duplicated
           const liveSlugs = new Set(live.map((p) => p.slug));
           const remainingMocks = PRODUCTS.filter((p) => !liveSlugs.has(p.slug));
-          return [...live, ...remainingMocks];
+          const allProds = [...live, ...remainingMocks];
+          console.log(`[TBP API] Loaded ${allProds.length} products (${live.length} live from Render backend)`);
+          return allProds;
         }
+      } else {
+        console.warn(`[TBP API] Backend returned HTTP ${res.status}`);
       }
     } catch (err) {
       console.warn("[TBP Backend API] Falling back to local catalog:", err);
