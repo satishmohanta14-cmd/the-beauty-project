@@ -1,0 +1,64 @@
+"""FastAPI application entry point for The Beauty Project backend."""
+from __future__ import annotations
+
+import logging
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import get_settings
+
+settings = get_settings()
+
+logging.basicConfig(level=settings.log_level)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="The Beauty Project API",
+    description=(
+        "High-performance programmatic beauty & skincare publisher backend. "
+        "Ingredient graph, dupe engine, affiliate offer index, and DCS gate."
+    ),
+    version="0.1.0",
+    docs_url="/docs" if settings.app_env != "production" else None,
+    redoc_url="/redoc" if settings.app_env != "production" else None,
+)
+
+dev_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+from app.api.pages import router as pages_router
+from app.api.v1.admin import router as admin_router
+from app.api.v1.affiliate import router as affiliate_router
+from app.api.v1.dupes import router as dupes_router
+from app.api.v1.ingredients import router as ingredients_router
+from app.api.v1.products import router as products_router
+from app.api.v1.sitemaps import router as sitemaps_router
+
+# Core API & ISR generation endpoints
+app.include_router(products_router)
+app.include_router(dupes_router)
+app.include_router(ingredients_router)
+app.include_router(sitemaps_router)
+app.include_router(pages_router)
+app.include_router(affiliate_router)
+app.include_router(admin_router)
+
+
+@app.get("/health", tags=["system"])
+async def health_check() -> dict[str, str]:
+    return {"status": "ok", "env": settings.app_env}
