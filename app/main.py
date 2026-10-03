@@ -20,8 +20,8 @@ app = FastAPI(
         "Ingredient graph, dupe engine, affiliate offer index, and DCS gate."
     ),
     version="0.1.0",
-    docs_url="/docs" if settings.app_env != "production" else None,
-    redoc_url="/redoc" if settings.app_env != "production" else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 dev_origins = [
@@ -57,6 +57,17 @@ app.include_router(sitemaps_router)
 app.include_router(pages_router)
 app.include_router(affiliate_router)
 app.include_router(admin_router)
+
+
+@app.get("/", tags=["system"])
+async def root() -> dict[str, str]:
+    return {
+        "status": "online",
+        "message": "The Beauty Project API is running",
+        "docs": "/docs",
+        "health": "/health",
+        "version": "0.1.0",
+    }
 
 
 @app.get("/health", tags=["system"])
