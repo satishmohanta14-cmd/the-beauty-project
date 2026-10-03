@@ -7,6 +7,22 @@ from pydantic import PostgresDsn, RedisDsn, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+import urllib.parse
+
+
+def _normalize_db_url(raw: str) -> str:
+    """Safely URL-encodes passwords with special characters (like @ or $) in database URLs."""
+    if "://" not in raw or "@" not in raw:
+        return raw
+    scheme, rest = raw.split("://", 1)
+    userinfo, hostinfo = rest.rsplit("@", 1)
+    if ":" in userinfo:
+        user, pwd = userinfo.split(":", 1)
+        pwd_encoded = urllib.parse.quote(urllib.parse.unquote(pwd), safe="")
+        return f"{scheme}://{user}:{pwd_encoded}@{hostinfo}"
+    return raw
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -35,7 +51,7 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """Always returns an asyncpg-compatible URL."""
         if self.database_url:
-            raw = str(self.database_url)
+            raw = _normalize_db_url(str(self.database_url))
             # Ensure the driver is asyncpg
             return raw.replace("postgresql://", "postgresql+asyncpg://", 1).replace(
                 "postgres://", "postgresql+asyncpg://", 1
